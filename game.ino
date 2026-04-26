@@ -1,35 +1,35 @@
 #include <FastLED.h>
 
-// --- НАЛАШТУВАННЯ ЗАЛІЗА ---
-#define NUM_LEDS 60        // Кількість пікселів
-#define LED_PIN 6          
-#define GREEN_BTN 2        
-#define RED_BTN 3          
-#define BLUE_BTN 4         
-#define LEVEL_UP_BTN 5     
+// --- Hardware set up ---
+#define NUM_LEDS 32        // led count
+#define LED_PIN 6
+#define GREEN_BTN 2
+#define RED_BTN 3
+#define BLUE_BTN 4
+#define LEVEL_UP_BTN 5
 
 CRGB leds[NUM_LEDS];
 
-// Кольори гри
+// Game colors
 CRGB colors[3] = {CRGB::Red, CRGB::Blue, CRGB::Green};
 
-// --- ІГРОВІ ЗМІННІ ---
+// --- Game vars ---
 int currentLevel = 1;      
 int successfulHits = 0;    
 
-// Таймери для руху
+// Move timers
 unsigned long lastEnemyMoveTime = 0;
 unsigned long lastShotMoveTime = 0;
 
-// Змінні для кнопок (відслідковування зміни стану)
+// Vars for buttons (Check var state)
 bool lastRedState = HIGH;
 bool lastGreenState = HIGH;
 bool lastBlueState = HIGH;
 bool lastLevelUpState = HIGH;
 unsigned long lastDebounceTime = 0;
-const int debounceDelay = 50; // Короткий антибрязкіт
+const int debounceDelay = 50;
 
-// Структури об'єктів
+// Object structures
 struct FallingPixel {
   int pos;
   CRGB color;
@@ -42,7 +42,7 @@ struct ShotPixel {
   bool active;
 };
 
-// Збільшений ліміт об'єктів
+// Increase objects value
 const int MAX_OBJECTS = 40;
 FallingPixel enemies[MAX_OBJECTS];
 ShotPixel shots[MAX_OBJECTS];
@@ -68,13 +68,13 @@ void setup() {
 void loop() {
   handleButtons();
   
-  // Визначення швидкості
+  // Speed define
   int enemySpeedDelay = 1000 / (currentLevel + 1); 
-  int shotSpeedDelay = enemySpeedDelay / 2; // Постріл вдвічі швидший
+  int shotSpeedDelay = enemySpeedDelay / 2; // Shot twise faster
 
   bool needsDraw = false;
 
-  // Рух пострілу
+  // Shot speed
   if (millis() - lastShotMoveTime >= shotSpeedDelay) {
     moveShots();
     checkCollisions(); 
@@ -82,7 +82,7 @@ void loop() {
     needsDraw = true;
   }
 
-  // Рух ворогів
+  // Enemies speed
   if (millis() - lastEnemyMoveTime >= enemySpeedDelay) {
     moveEnemies();
     checkCollisions(); 
@@ -95,7 +95,7 @@ void loop() {
     drawGame();
   }
   
-  // Авто-підвищення рівня
+  // Auto level up
   if (successfulHits >= 50 && currentLevel < 5) {
     levelUp();
     successfulHits = 0;
@@ -108,7 +108,6 @@ void handleButtons() {
   bool readingBlue = digitalRead(BLUE_BTN);
   bool readingLevelUp = digitalRead(LEVEL_UP_BTN);
 
-  // Перевірка тільки при натисканні (зміна з HIGH на LOW) з урахуванням антибрязкоту
   if (millis() - lastDebounceTime > debounceDelay) {
     if (readingRed == LOW && lastRedState == HIGH) { 
       shoot(CRGB::Red); 
@@ -128,7 +127,7 @@ void handleButtons() {
     }
   }
 
-  // Зберігаємо поточний стан для наступного циклу
+  // Keep current state for the next loop
   lastRedState = readingRed;
   lastGreenState = readingGreen;
   lastBlueState = readingBlue;
@@ -138,7 +137,7 @@ void handleButtons() {
 void shoot(CRGB color) {
   for (int i = 0; i < MAX_OBJECTS; i++) {
     if (!shots[i].active) {
-      shots[i].pos = 1; // Вилітає одразу НАД базою
+      shots[i].pos = 1; // 1 LED HIGH on the base
       shots[i].color = color;
       shots[i].active = true;
       break;
@@ -167,10 +166,10 @@ void moveEnemies() {
     if (enemies[i].active) {
       enemies[i].pos--;
       
-      // Якщо ворог торкнувся бази (0-й піксель)
+      // If enemy touches the base
       if (enemies[i].pos <= 0) {
-        drawGame(); // Малюємо кадр удару
-        delay(300); // Даємо гравцю 300 мс, щоб побачити, хто долетів
+        drawGame();
+        delay(300);
         resetGame(); 
         return; 
       }
@@ -199,12 +198,10 @@ void checkCollisions() {
       if (enemies[e].pos == shots[s].pos || enemies[e].pos == shots[s].pos - 1) {
         
         if (enemies[e].color == shots[s].color) {
-          // Правильне влучання
           enemies[e].active = false;
           shots[s].active = false;
           successfulHits++;
         } else {
-          // Неправильне влучання: ворог ГАРАНТОВАНО змінює колір на інший
           CRGB oldColor = enemies[e].color;
           CRGB newColor;
           do {
@@ -240,7 +237,7 @@ void resetGame() {
     shots[i].active = false;
   }
   
-  // Спалах програшу
+  // Show Game over
   FastLED.clear();
   fill_solid(leds, NUM_LEDS, CRGB::Red);
   FastLED.show();
@@ -252,10 +249,9 @@ void resetGame() {
 void drawGame() {
   FastLED.clear();
   
-  // Підсвітка бази гравця (слабкий білий)
+  // First pixel
   leds[0] = CRGB(20, 20, 20); 
   
-  // Малювання об'єктів
   for (int i = 0; i < MAX_OBJECTS; i++) {
     if (enemies[i].active && enemies[i].pos > 0 && enemies[i].pos < NUM_LEDS) {
       leds[enemies[i].pos] = enemies[i].color;
